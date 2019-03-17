@@ -7,7 +7,6 @@ import Control.Monad
 import Control.Concurrent
 import Control.Concurrent
 import Control.Concurrent.STM
-import Control.Concurrent.Async
 import qualified Data.List as L
 import Data.Attoparsec.Text as A
 import Data.Text
@@ -84,7 +83,7 @@ buildButton b s m q =
 
 calculator :: (TextViewClass display, TextBufferClass buffer) => display -> buffer ->  TQueue Message -> [String] -> IO ()
 calculator d buf q [] = calculator d buf q ["0"]
-calculator d buf q st@(x:xs) = atomically (readTQueue q) >>= \m -> do
+calculator d buf' q st@(x:xs) = atomically (readTQueue q) >>= \m -> do
   let xs' = case m of
         M0 -> (x ++ "0") : xs
         M1 -> (x ++ "1") : xs
@@ -111,9 +110,12 @@ calculator d buf q st@(x:xs) = atomically (readTQueue q) >>= \m -> do
           [_] -> "0" : xs
           _ -> L.init x : xs
         MAC -> ["0"] ++ xs
-  textBufferSetText buf (L.intercalate "\n" (L.reverse xs'))
-  textViewSetBuffer d buf
-  calculator d buf q xs'
+  idleAdd ( do
+              buf <- textViewGetBuffer d
+              textBufferSetText buf (L.intercalate "\n" (L.reverse xs'))
+              return True
+          ) priorityLow
+  calculator d buf' q xs'
 
 expP :: Parser Exp
 expP =  choice [prodP, divP] <|> choice [plusP, minusP] <|> leafP
