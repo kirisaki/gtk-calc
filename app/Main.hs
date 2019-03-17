@@ -1,4 +1,3 @@
---{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import Graphics.UI.Gtk
@@ -6,7 +5,6 @@ import Control.Monad.IO.Class
 import Control.Monad
 import Control.Concurrent
 import Control.Concurrent.STM
-import Control.Concurrent.Async
 
 data Message
   = M0
@@ -24,6 +22,7 @@ data Message
   | MProd
   | MDiv
   | MPoint
+  | MEq
   | MC
   | MAC
   deriving (Eq, Show)
@@ -43,13 +42,36 @@ main = do
     q <- atomically newTQueue
     forkIO $ calculator display q
 
-    button0 <- builderGetObject xml castToButton "button_0"
-    button0 `on` buttonPressEvent $ tryEvent $ do
-      liftIO $ putStrLn "nyaan"
+    mapM_ (\(s, m) -> buildButton xml s m q)
+      [ ("0", M0)
+      , ("1", M1)
+      , ("2", M2)
+      , ("3", M3)
+      , ("4", M4)
+      , ("5", M5)
+      , ("6", M6)
+      , ("7", M7)
+      , ("8", M8)
+      , ("9", M9)
+      , ("plus", MPlus)
+      , ("minus", MMinus)
+      , ("prod", MProd)
+      , ("div", MDiv)
+      , ("point", MPoint)
+      , ("eq", MEq)
+      , ("c", MC)
+      , ("ac", MAC)
+      ]
 
     widgetShowAll window
 
     mainGUI
 
+buildButton ::  Builder -> String -> Message -> TQueue Message -> IO (ConnectId Button)
+buildButton b s m q =
+  builderGetObject b castToButton ("button_" ++ s) >>=
+  (\x -> x `on` buttonPressEvent $ tryEvent $ liftIO (atomically $ writeTQueue q m))
+
+
 calculator :: EntryClass display => display -> TQueue Message  -> IO ()
-calculator d q = threadDelay 1000000 >> entrySetText d "fuga"
+calculator d q = forever $ print =<< atomically (readTQueue q)
