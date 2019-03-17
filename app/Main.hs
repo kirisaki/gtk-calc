@@ -6,6 +6,7 @@ import Control.Monad.IO.Class
 import Control.Monad
 import Control.Concurrent
 import Control.Concurrent.STM
+import qualified Data.List as L
 
 data Message
   = M0
@@ -37,11 +38,13 @@ main = do
     window      <- builderGetObject xml castToWindow "topwindow"
     window `on` objectDestroy $ mainQuit
 
-    display <- builderGetObject xml castToEntry "display"
-    entrySetText display "0"
+    buf <- builderGetObject xml castToTextBuffer "display_buffer"
+    display <- builderGetObject xml castToTextView "display"
+    textBufferSetText buf "0"
+    textViewSetBuffer display buf
 
     q <- atomically newTQueue
-    forkIO $ calculator display q 0
+    forkIO $ calculator display buf q ["0"]
 
     mapM_ (\(s, m) -> buildButton xml s m q)
       [ ("0", M0)
@@ -74,26 +77,30 @@ buildButton b s m q =
   (\x -> x `on` buttonPressEvent $ tryEvent $ liftIO (atomically $ writeTQueue q m))
 
 
-calculator :: EntryClass display => display -> TQueue Message -> Int -> IO ()
-calculator d q st = atomically (readTQueue q) >>= \m -> do
-  let st' = case m of
-        M0 -> st * 10
-        M1 -> st * 10 + 1
-        M2 -> st * 10 + 2
-        M3 -> st * 10 + 3
-        M4 -> st * 10 + 4
-        M5 -> st * 10 + 5
-        M6 -> st * 10 + 6
-        M7 -> st * 10 + 7
-        M8 -> st * 10 + 8
-        M9 -> st * 10 + 9
-        MPlus -> undefined
-        MMinus -> undefined
-        MProd -> undefined
-        MDiv -> undefined
-        MPoint -> undefined
-        MEq -> undefined
-        MC -> undefined
-        MAC -> undefined
-  entrySetText d (show st')
-  calculator d q st'
+calculator :: (TextViewClass display, TextBufferClass buffer) => display -> buffer ->  TQueue Message -> [String] -> IO ()
+calculator d buf q [] = calculator d buf q ["0"]
+calculator d buf q st@(x:xs) = atomically (readTQueue q) >>= \m -> do
+  let xs' = case m of
+        M0 -> (x ++ "0") : xs
+        M1 -> (x ++ "1") : xs
+        M2 -> (x ++ "2") : xs
+        M3 -> (x ++ "3") : xs
+        M4 -> (x ++ "4") : xs
+        M5 -> (x ++ "5") : xs
+        M6 -> (x ++ "6") : xs
+        M7 -> (x ++ "7") : xs
+        M8 -> (x ++ "8") : xs
+        M9 -> (x ++ "9") : xs
+        MPlus -> (x ++ "+") : xs
+        MMinus -> (x ++ "-") : xs
+        MProd -> (x ++ "*") : xs
+        MDiv -> (x ++ "/") : xs
+        MPoint -> (x ++ ".") : xs
+        MEq -> "0" : st
+        MC -> case x of
+          [_] -> "0" : xs
+          _ -> init x : xs
+        MAC -> ["0"] ++ xs
+  textBufferSetText buf (L.intercalate "\n" (L.reverse xs'))
+  textViewSetBuffer d buf
+  calculator d buf q xs'
