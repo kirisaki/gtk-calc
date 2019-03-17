@@ -24,6 +24,8 @@ dependencies:
 - gtk3
 - async
 - stm
+- attoparsec
+- text
 
 executables:
   gtk-calc:

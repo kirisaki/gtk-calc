@@ -5,8 +5,13 @@ import Graphics.UI.Gtk
 import Control.Monad.IO.Class
 import Control.Monad
 import Control.Concurrent
+import Control.Concurrent
 import Control.Concurrent.STM
+import Control.Concurrent.Async
 import qualified Data.List as L
+import Data.Attoparsec.Text as A
+import Data.Text
+import Control.Applicative
 
 data Message
   = M0
@@ -96,11 +101,53 @@ calculator d buf q st@(x:xs) = atomically (readTQueue q) >>= \m -> do
         MProd -> (x ++ "*") : xs
         MDiv -> (x ++ "/") : xs
         MPoint -> (x ++ ".") : xs
-        MEq -> "0" : st
+        MEq ->
+          case feed (parse expP (pack x)) (pack "") of
+            Done _ e ->
+              "0" : show (eval e) : st
+            _ ->
+              "0" : "error"  : st
         MC -> case x of
           [_] -> "0" : xs
-          _ -> init x : xs
+          _ -> L.init x : xs
         MAC -> ["0"] ++ xs
   textBufferSetText buf (L.intercalate "\n" (L.reverse xs'))
   textViewSetBuffer d buf
   calculator d buf q xs'
+
+expP :: Parser Exp
+expP =  choice [prodP, divP] <|> choice [plusP, minusP] <|> leafP
+
+leafP :: Parser Exp
+leafP = Leaf <$> double
+
+plusP :: Parser Exp
+plusP =  OpPlus <$> leafP <* char '+' <*> expP
+
+minusP :: Parser Exp
+minusP = OpMinus <$> leafP <* char '-' <*> expP
+
+prodP :: Parser Exp
+prodP =  OpProd <$> leafP <* char '*' <*> expP
+
+divP :: Parser Exp
+divP =  OpDiv <$> leafP <* char '/' <*> expP
+
+data Exp
+  = Leaf Double
+  | OpPlus Exp Exp
+  | OpMinus Exp Exp
+  | OpProd Exp Exp
+  | OpDiv Exp Exp
+  deriving (Show, Eq)
+
+eval :: Exp -> Exp
+eval (Leaf v) = Leaf v
+eval (OpPlus (Leaf x) (Leaf y)) = Leaf $ x + y
+eval (OpPlus x y) = eval $ OpPlus (eval x) (eval y)
+eval (OpMinus (Leaf x) (Leaf y)) = Leaf $ x - y
+eval (OpMinus x y) = eval $ OpMinus (eval x) (eval y)
+eval (OpProd (Leaf x) (Leaf y)) = Leaf $ x * y
+eval (OpProd x y) = eval $ OpProd (eval x) (eval y)
+eval (OpDiv (Leaf x) (Leaf y)) = Leaf $ x / y
+eval (OpDiv x y) = eval $ OpDiv (eval x) (eval y)
