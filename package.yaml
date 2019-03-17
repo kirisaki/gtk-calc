@@ -1,0 +1,33 @@
+name:                gtk-calc
+version:             0.1.0.0
+github:              "kirisaki/gtk-calc"
+license:             BSD3
+author:              "Akihito KIRISAKI"
+maintainer:          "kirisaki@klaraworks.net"
+copyright:           "Copyright: (c) 2018 Akihito KIRISAKI"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            Web
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README on GitHub at <https://github.com/kirisaki/gtk-calc#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- gtk3
+
+executables:
+  gtk-calc:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
