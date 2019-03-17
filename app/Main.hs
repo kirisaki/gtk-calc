@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Main where
 
 import Graphics.UI.Gtk
@@ -37,10 +38,10 @@ main = do
     window `on` objectDestroy $ mainQuit
 
     display <- builderGetObject xml castToEntry "display"
-    entrySetText display "aaa"
+    entrySetText display "0"
 
     q <- atomically newTQueue
-    forkIO $ calculator display q
+    forkIO $ calculator display q 0
 
     mapM_ (\(s, m) -> buildButton xml s m q)
       [ ("0", M0)
@@ -73,5 +74,26 @@ buildButton b s m q =
   (\x -> x `on` buttonPressEvent $ tryEvent $ liftIO (atomically $ writeTQueue q m))
 
 
-calculator :: EntryClass display => display -> TQueue Message  -> IO ()
-calculator d q = forever $ print =<< atomically (readTQueue q)
+calculator :: EntryClass display => display -> TQueue Message -> Int -> IO ()
+calculator d q st = atomically (readTQueue q) >>= \m -> do
+  let st' = case m of
+        M0 -> st * 10
+        M1 -> st * 10 + 1
+        M2 -> st * 10 + 2
+        M3 -> st * 10 + 3
+        M4 -> st * 10 + 4
+        M5 -> st * 10 + 5
+        M6 -> st * 10 + 6
+        M7 -> st * 10 + 7
+        M8 -> st * 10 + 8
+        M9 -> st * 10 + 9
+        MPlus -> undefined
+        MMinus -> undefined
+        MProd -> undefined
+        MDiv -> undefined
+        MPoint -> undefined
+        MEq -> undefined
+        MC -> undefined
+        MAC -> undefined
+  entrySetText d (show st')
+  calculator d q st'
